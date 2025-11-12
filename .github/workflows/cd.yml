@@ -83,6 +83,7 @@ jobs:
     - name: Deploy to GKE
       run: |
         kubectl apply -f k8s/deployment.yml
+        # This is the new line that applies the HPA
         kubectl apply -f k8s/hpa.yml
         echo "Deployment started. Waiting for rollout..."
         kubectl rollout status deployment/iris-api-deployment --timeout=120s
@@ -123,24 +124,17 @@ jobs:
         echo "Waiting for External IP..."
         EXTERNAL_IP=""
         while [ -z $EXTERNAL_IP ]; do
+          # This loop waits for the LoadBalancer to get a public IP
           sleep 10
           EXTERNAL_IP=$(kubectl get service iris-api-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
           echo "Current IP: $EXTERNAL_IP"
         done
 
         echo "✅ IP found: $EXTERNAL_IP"
-        
-        echo "⌛ Waiting for Load Balancer to be ready..."
-        # This new 'until' loop will ping the health endpoint until it gets a success code
-        until curl --silent --fail --output /dev/null http://$EXTERNAL_IP/health; do
-          echo "Load Balancer not ready, retrying in 5s..."
-          sleep 5
-        done
-        
-        echo "✅ Load Balancer is ready!"
         echo "--- Starting stress test (1000+ requests) ---"
         
         # Run wrk: -t4 (4 threads), -c150 (150 concurrent connections), -d30s (for 30 seconds)
+        # This will generate tens of thousands of requests
         wrk -t4 -c150 -d30s -s tests/post.lua http://$EXTERNAL_IP/predict
 
         echo "--- Test complete. Checking HPA status: ---"

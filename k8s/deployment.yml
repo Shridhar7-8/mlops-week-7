@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: iris-api-deployment
 spec:
-  replicas: 1 # Start with 1, HPA will scale it
+  replicas: 2 # Run 2 copies of our app
   selector:
     matchLabels:
       app: iris-api
@@ -25,27 +25,6 @@ spec:
           limits:
             cpu: "250m"
             memory: "256Mi"
-        
-        # --- THIS IS THE UPDATED SECTION ---
-        # Probe 1: Is the app READY to accept traffic?
-        # We are making this very patient.
-        readinessProbe:
-          httpGet:
-            path: /health  # The path of our health check endpoint
-            port: 8080     # The port inside the container
-          initialDelaySeconds: 60 # Wait 60s after pod starts (was 45)
-          periodSeconds: 15       # Check every 15s
-          failureThreshold: 10    # Mark as "unhealthy" after 10 failures (was 5)
-        
-        # Probe 2: Is the app ALIVE (not crashed)?
-        # If this fails, Kubernetes will restart the pod.
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8080
-          initialDelaySeconds: 90 # Give it 90s before checking if it's alive
-          periodSeconds: 20
-        # --- END OF UPDATED SECTION ---
 ---
 apiVersion: v1
 kind: Service
