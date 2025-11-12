@@ -26,17 +26,16 @@ spec:
             cpu: "250m"
             memory: "256Mi"
         
-        # --- THIS IS THE NEW SECTION ---
-        # This tells Kubernetes (and the GKE Load Balancer)
-        # how to check if your app is healthy and ready for traffic.
+        # --- THIS IS THE UPDATED SECTION ---
+        # We are giving the pod more time to start up
         readinessProbe:
           httpGet:
             path: /health  # The path of our health check endpoint
             port: 8080     # The port inside the container
-          initialDelaySeconds: 15 # Wait 15s after pod starts before first check
-          periodSeconds: 10       # Check every 10s
-          failureThreshold: 3     # Mark as "unhealthy" after 3 failures
-        # --- END OF NEW SECTION ---
+          initialDelaySeconds: 45 # Wait 45s after pod starts (was 15)
+          periodSeconds: 15       # Check every 15s (was 10)
+          failureThreshold: 5     # Mark as "unhealthy" after 5 failures (was 3)
+        # --- END OF UPDATED SECTION ---
 ---
 apiVersion: v1
 kind: Service
