@@ -27,14 +27,24 @@ spec:
             memory: "256Mi"
         
         # --- THIS IS THE UPDATED SECTION ---
-        # We are giving the pod more time to start up
+        # Probe 1: Is the app READY to accept traffic?
+        # We are making this very patient.
         readinessProbe:
           httpGet:
             path: /health  # The path of our health check endpoint
             port: 8080     # The port inside the container
-          initialDelaySeconds: 45 # Wait 45s after pod starts (was 15)
-          periodSeconds: 15       # Check every 15s (was 10)
-          failureThreshold: 5     # Mark as "unhealthy" after 5 failures (was 3)
+          initialDelaySeconds: 60 # Wait 60s after pod starts (was 45)
+          periodSeconds: 15       # Check every 15s
+          failureThreshold: 10    # Mark as "unhealthy" after 10 failures (was 5)
+        
+        # Probe 2: Is the app ALIVE (not crashed)?
+        # If this fails, Kubernetes will restart the pod.
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 90 # Give it 90s before checking if it's alive
+          periodSeconds: 20
         # --- END OF UPDATED SECTION ---
 ---
 apiVersion: v1
