@@ -132,13 +132,14 @@ jobs:
 
         # --- THIS IS THE BULLETPROOF FIX ---
         # This loop retries on ANY error (code 7, 22, 28, etc.)
+        # It has been modified to not fail on 'set -e'
         echo "⌛ Waiting for Load Balancer to be ready (max 3 minutes)..."
         START_TIME=$SECONDS
         while true; do
-          # Use curl with a 5-second timeout and check its exit code
-          # -f (fail fast), -s (silent), -I (headers only)
-          curl -fsI --connect-timeout 5 "http://$EXTERNAL_IP/health" > /dev/null
-          CURL_EXIT_CODE=$?
+          
+          # This line is the fix. We capture the exit code without letting the script fail.
+          CURL_EXIT_CODE=0
+          curl -fsI --connect-timeout 5 "http://$EXTERNAL_IP/health" > /dev/null || CURL_EXIT_CODE=$?
 
           if [ $CURL_EXIT_CODE -eq 0 ]; then
             echo "✅ Load Balancer is ready!"
