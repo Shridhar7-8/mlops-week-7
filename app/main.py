@@ -6,8 +6,10 @@ from typing import List
 
 # Define the input data schema using Pydantic
 class IrisFeatures(BaseModel):
-    # We use conlist (constrained list) to ensure it's a list of 4 floats
-    features: List[conlist(float, min_items=4, max_items=4)]
+    #
+    # THIS IS THE FIX: 'min_items' and 'max_items' are changed to 'min_length' and 'max_length'
+    #
+    features: List[conlist(float, min_length=4, max_length=4)]
 
 app = FastAPI(
     title="Iris Species Predictor API",
