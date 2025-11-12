@@ -85,12 +85,11 @@ jobs:
         kubectl apply -f k8s/deployment.yml
         kubectl apply -f k8s/hpa.yml
         echo "Deployment started. Waiting for rollout..."
-        # Increased timeout to 5 minutes to be safe
         kubectl rollout status deployment/iris-api-deployment --timeout=5m
         
     - name: Show Service IP
       run: |
-        echo "Deployments successful! Waiting for LoadBalancer IP..."
+        echo "Deployment successful! Waiting for LoadBalancer IP..."
         kubectl get service iris-api-service
 
   stress-test-deployment:
@@ -131,7 +130,8 @@ jobs:
 
         echo "✅ IP found: $EXTERNAL_IP"
 
-        # --- THIS IS THE CRITICAL FIX ---
+        # --- THIS IS THE BULLETPROOF FIX ---
+        # This loop retries on ANY error (code 7, 22, 28, etc.)
         echo "⌛ Waiting for Load Balancer to be ready (max 3 minutes)..."
         START_TIME=$SECONDS
         while true; do
@@ -145,19 +145,13 @@ jobs:
             break
           fi
 
-          # Check for timeout (3 minutes)
           ELAPSED_TIME=$(($SECONDS - $START_TIME))
           if [ $ELAPSED_TIME -ge 180 ]; then
             echo "❌ ERROR: Load Balancer wait timed out after 3 minutes."
             exit 1
           fi
 
-          # 7 = Connection refused. This is OK, we just retry.
-          if [ $CURL_EXIT_CODE -eq 7 ]; then
-             echo "Load Balancer not ready (Connection refused), retrying in 10s..."
-          else
-             echo "Load Balancer not ready (curl code: $CURL_EXIT_CODE), retrying in 10s..."
-          fi
+          echo "Load Balancer not ready (curl code: $CURL_EXIT_CODE), retrying in 10s..."
           sleep 10
         done
         # --- END OF FIX ---
