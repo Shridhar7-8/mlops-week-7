@@ -5,7 +5,7 @@
 # 🌸 MLOps Week 4 Assignment: CI/CD Pipeline for Iris Model
 
 This repository demonstrates a **Continuous Integration (CI)** pipeline for a machine learning project — built as part of an **MLOps assignment**.
-It uses the classic **Iris dataset** to train a **Decision Tree Classifier** and implements a full CI workflow using **GitHub Actions**, **DVC**, and **CML**.
+It uses the classic **Iris dataset** to train a **Decision Tree Classifier** and implement a full CI workflow using **GitHub Actions**, **DVC**, and **CML**.
 
 ---
 
