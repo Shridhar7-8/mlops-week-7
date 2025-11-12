@@ -3,7 +3,8 @@ kind: Deployment
 metadata:
   name: iris-api-deployment
 spec:
-  replicas: 2 # Run 2 copies of our app
+  # Start with 1 replica, let the HPA scale it
+  replicas: 1 
   selector:
     matchLabels:
       app: iris-api
@@ -14,7 +15,6 @@ spec:
     spec:
       containers:
       - name: iris-api
-        # This is a placeholder! The CI/CD pipeline will replace it.
         image: IMAGE_PLACEHOLDER
         ports:
         - containerPort: 8080
@@ -25,15 +25,34 @@ spec:
           limits:
             cpu: "250m"
             memory: "256Mi"
+        
+        # --- THIS IS THE CRITICAL FIX ---
+        # Probe 1: Is the app READY to accept traffic?
+        readinessProbe:
+          httpGet:
+            path: /health  # The path of our health check endpoint
+            port: 8080     # The port inside the container
+          initialDelaySeconds: 45 # Wait 45s after pod starts
+          periodSeconds: 15       # Check every 15s
+          failureThreshold: 5     # Mark as "unhealthy" after 5 failures
+        
+        # Probe 2: Is the app ALIVE (not crashed)?
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 60 # Wait 60s before checking if it's alive
+          periodSeconds: 20
+        # --- END OF FIX ---
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: iris-api-service
 spec:
-  type: LoadBalancer # Creates a public IP address (Load Balancer)
+  type: LoadBalancer 
   selector:
     app: iris-api
   ports:
-  - port: 80 # Public port
-    targetPort: 8080 # App's internal port
+  - port: 80 
+    targetPort: 8080

@@ -83,26 +83,26 @@ jobs:
     - name: Deploy to GKE
       run: |
         kubectl apply -f k8s/deployment.yml
-        # This is the new line that applies the HPA
         kubectl apply -f k8s/hpa.yml
         echo "Deployment started. Waiting for rollout..."
-        kubectl rollout status deployment/iris-api-deployment --timeout=120s
+        # Increased timeout to 5 minutes to be safe
+        kubectl rollout status deployment/iris-api-deployment --timeout=5m
         
     - name: Show Service IP
       run: |
-        echo "Deployment successful! Waiting for LoadBalancer IP..."
+        echo "Deployments successful! Waiting for LoadBalancer IP..."
         kubectl get service iris-api-service
 
   stress-test-deployment:
     name: ⚡ Stress Test Deployment
     runs-on: ubuntu-latest
-    needs: deploy-to-gke # Runs only after deployment succeeds
+    needs: deploy-to-gke 
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Install wrk and kubectl
+    - name: Install wrk and gcloud/kubectl
       run: |
         sudo apt-get update
         sudo apt-get install -y wrk
@@ -124,17 +124,46 @@ jobs:
         echo "Waiting for External IP..."
         EXTERNAL_IP=""
         while [ -z $EXTERNAL_IP ]; do
-          # This loop waits for the LoadBalancer to get a public IP
           sleep 10
           EXTERNAL_IP=$(kubectl get service iris-api-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
           echo "Current IP: $EXTERNAL_IP"
         done
 
         echo "✅ IP found: $EXTERNAL_IP"
+
+        # --- THIS IS THE CRITICAL FIX ---
+        echo "⌛ Waiting for Load Balancer to be ready (max 3 minutes)..."
+        START_TIME=$SECONDS
+        while true; do
+          # Use curl with a 5-second timeout and check its exit code
+          # -f (fail fast), -s (silent), -I (headers only)
+          curl -fsI --connect-timeout 5 "http://$EXTERNAL_IP/health" > /dev/null
+          CURL_EXIT_CODE=$?
+
+          if [ $CURL_EXIT_CODE -eq 0 ]; then
+            echo "✅ Load Balancer is ready!"
+            break
+          fi
+
+          # Check for timeout (3 minutes)
+          ELAPSED_TIME=$(($SECONDS - $START_TIME))
+          if [ $ELAPSED_TIME -ge 180 ]; then
+            echo "❌ ERROR: Load Balancer wait timed out after 3 minutes."
+            exit 1
+          fi
+
+          # 7 = Connection refused. This is OK, we just retry.
+          if [ $CURL_EXIT_CODE -eq 7 ]; then
+             echo "Load Balancer not ready (Connection refused), retrying in 10s..."
+          else
+             echo "Load Balancer not ready (curl code: $CURL_EXIT_CODE), retrying in 10s..."
+          fi
+          sleep 10
+        done
+        # --- END OF FIX ---
+        
         echo "--- Starting stress test (1000+ requests) ---"
         
-        # Run wrk: -t4 (4 threads), -c150 (150 concurrent connections), -d30s (for 30 seconds)
-        # This will generate tens of thousands of requests
         wrk -t4 -c150 -d30s -s tests/post.lua http://$EXTERNAL_IP/predict
 
         echo "--- Test complete. Checking HPA status: ---"
